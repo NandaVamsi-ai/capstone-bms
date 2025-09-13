@@ -4,6 +4,7 @@ pipeline {
     tools {
         jdk 'jdk17'
         nodejs 'node23'
+        // no need to declare dependency-check here
     }
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
@@ -14,22 +15,26 @@ pipeline {
                 cleanWs()
             }
         }
+
         stage('Checkout from Git') {
             steps {
                git branch: 'main', url: 'https://github.com/NandaVamsi-ai/capstone-bms.git'
-                sh 'ls -la'  // Verify files after checkout
+               sh 'ls -la'  // Verify files after checkout
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
                 withSonarQubeEnv('sonar-server') {
                     sh ''' 
-                    $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=BMS \
-                    -Dsonar.projectKey=BMS 
+                    $SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectName=BMS \
+                        -Dsonar.projectKey=BMS 
                     '''
                 }
             }
         }
+
         stage('Quality Gate') {
             steps {
                 script {
@@ -37,6 +42,7 @@ pipeline {
                 }
             }
         }
+
         stage('Install Dependencies') {
             steps {
                 sh '''
@@ -52,17 +58,20 @@ pipeline {
                 '''
             }
         }
+
         stage('OWASP FS Scan') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
-                dependencyCheckPublisher pattern: '/dependency-check-report.xml'
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'Dp-check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
+
         stage('Trivy FS Scan') {
             steps {
                 sh 'trivy fs . > trivyfs.txt'
             }
         }
+
         stage('Docker Build & Push') {
             steps {
                 script {
@@ -72,12 +81,13 @@ pipeline {
                         docker build --no-cache -t nandhavamsireddy/bms:latest -f bookmyshow-app/Dockerfile bookmyshow-app
 
                         echo "Pushing Docker image to registry..."
-                        docker push nandhavamsiredddy/bms:latest
+                        docker push nandhavamsireddy/bms:latest
                         '''
                     }
                 }
             }
         }
+
         stage('Deploy to Container') {
             steps {
                 sh ''' 
@@ -98,6 +108,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             emailext attachLog: true,
